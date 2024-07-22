@@ -12,11 +12,6 @@ class Rank_Math_Integration extends Integration {
 	 */
 	protected $id = 'rank-math';
 
-	public function __construct() {
-		$this->name = __( 'Rank Math', 'simply-static' );
-		$this->description = __( 'Adds sitemaps to generated static files.', 'simply-static' );
-	}
-
 	/**
 	 * Run the integration.
 	 *
@@ -24,7 +19,6 @@ class Rank_Math_Integration extends Integration {
 	 */
 	public function run() {
 		add_action( 'ss_after_setup_task', [ $this, 'register_sitemap_page' ] );
-		add_filter( 'ssp_single_export_additional_urls', [ $this, 'add_sitemap_url' ] );
 
 		$this->include_file( 'handlers/class-ss-rank-math-sitemap-handler.php' );
 	}
@@ -50,28 +44,11 @@ class Rank_Math_Integration extends Integration {
 	}
 
 	/**
-	 * Add XML sitemap to single exports.
+	 * Can this integration run?
 	 *
-	 * @param $urls
-	 *
-	 * @return mixed
+	 * @return bool
 	 */
-	public function add_sitemap_url( $urls ) {
-		if ( ! class_exists( '\RankMath\Sitemap\Router' ) ) {
-			return $urls;
-		}
-
-		$urls[] = Router::get_base_url( 'sitemap_index.xml' );
-
-		return $urls;
-	}
-
-	/**
-	 * Return if the dependency is active.
-	 *
-	 * @return boolean
-	 */
-	public function dependency_active() {
+	public function can_run() {
 		return class_exists( 'RankMath' );
 	}
 }

@@ -35,13 +35,31 @@ class Util {
 	 * @return string home URL
 	 */
 	public static function origin_url() {
-		$options = Options::instance();
-
-		if ( $options->get( 'origin_url' ) ) {
-			return apply_filters( 'ss_origin_url', esc_url( untrailingslashit( $options->get( 'origin_url' ) ) ) );
-		}
-
 		return apply_filters( 'ss_origin_url', untrailingslashit( home_url() ) );
+	}
+
+	/**
+	 * Wrapper around site_url(). Returns the URL used for the WP installation.
+	 * @return string home URL
+	 */
+	public static function wp_installation_url() {
+		return untrailingslashit( site_url() );
+	}
+
+	/**
+	 * Echo the selected value for an option tag if the statement is true.
+	 * @return null
+	 */
+	public static function selected_if( $statement ) {
+		echo( $statement == true ? 'selected="selected"' : '' );
+	}
+
+	/**
+	 * Echo the checked value for an input tag if the statement is true.
+	 * @return null
+	 */
+	public static function checked_if( $statement ) {
+		echo( $statement == true ? 'checked="checked"' : '' );
 	}
 
 	/**
@@ -50,6 +68,14 @@ class Util {
 	 */
 	public static function truncate( $string, $length = 30, $omission = '...' ) {
 		return ( strlen( $string ) > $length + 3 ) ? ( substr( $string, 0, $length ) . $omission ) : $string;
+	}
+
+	/**
+	 * Use trailingslashit unless the string is empty
+	 * @return string
+	 */
+	public static function trailingslashit_unless_blank( $string ) {
+		return $string === '' ? $string : trailingslashit( $string );
 	}
 
 	/**
@@ -65,14 +91,13 @@ class Util {
 	}
 
 	/**
-	 * Clear the debug log
+	 * Delete the debug log
 	 * @return void
 	 */
-	public static function clear_debug_log() {
+	public static function delete_debug_log() {
 		$debug_file = self::get_debug_log_filename();
 		if ( file_exists( $debug_file ) ) {
-			// Clear file
-			file_put_contents( $debug_file, '' );
+			unlink( $debug_file );
 		}
 	}
 
@@ -85,7 +110,7 @@ class Util {
 	 */
 	public static function debug_log( $object = null ) {
 		$options = Options::instance();
-		if ( ! $options->get( 'debugging_mode' ) ) {
+		if ( $options->get( 'debugging_mode' ) !== '1' ) {
 			return;
 		}
 
@@ -119,33 +144,7 @@ class Util {
 	 * @return string Filename for the debug log
 	 */
 	public static function get_debug_log_filename() {
-		// Get directories.
-		$uploads_dir       = wp_upload_dir();
-		$simply_static_dir = $uploads_dir['basedir'] . DIRECTORY_SEPARATOR . 'simply-static' . DIRECTORY_SEPARATOR;
-
-		// Set name for debug file.
-		$options = get_option( 'simply-static' );
-
-		if ( isset( $options['encryption_key'] ) ) {
-			$htaccess_file = get_home_path() . '.htaccess';
-
-			if ( file_exists( $htaccess_file ) && ! is_multisite() ) {
-				// Set up log file path.
-				$log_file = untrailingslashit( $simply_static_dir ) . DIRECTORY_SEPARATOR . $options['encryption_key'] . '-debug.txt';
-
-				// Write to .htaccess file.
-				$htaccess_inner_content = "\nrequire all denied\nrequire host localhost\n";
-				$htaccess_file_content  = '<Files "' . $log_file . '">' . $htaccess_inner_content . '</Files>';
-
-				if ( file_exists( $log_file ) ) {
-					insert_with_markers( $htaccess_file, 'Simply Static', $htaccess_file_content );
-				}
-			}
-
-			return $simply_static_dir . $options['encryption_key'] . '-debug.txt';
-		} else {
-			return $simply_static_dir . 'debug.txt';
-		}
+		return plugin_dir_path( dirname( __FILE__ ) ) . 'debug.txt';
 	}
 
 	/**
@@ -166,15 +165,6 @@ class Util {
 		ob_end_clean();
 
 		return $contents;
-	}
-
-	public static function is_valid_scheme( $scheme ) {
-		$valid_schemes = apply_filters( 'simply_static_valid_schemes', [
-			'http',
-			'https',
-		] );
-
-		return in_array( $scheme, $valid_schemes );
 	}
 
 	/**
@@ -230,9 +220,6 @@ class Util {
 
 		// if no path, check for an ending slash; if there isn't one, add one
 		if ( ! isset( $parsed_extracted_url['path'] ) ) {
-			if ( isset( $parsed_extracted_url['scheme'] ) && ! self::is_valid_scheme( $parsed_extracted_url['scheme'] ) ) {
-				return $extracted_url;
-			}
 			$clean_url     = self::remove_params_and_fragment( $extracted_url );
 			$fragment      = substr( $extracted_url, strlen( $clean_url ) );
 			$extracted_url = trailingslashit( $clean_url ) . $fragment;
@@ -310,7 +297,7 @@ class Util {
 	 * @return boolean      true if URL is local, false otherwise
 	 */
 	public static function is_local_url( $url ) {
-		return apply_filters( 'ss_is_local_url', ( stripos( self::strip_protocol_from_url( $url ), self::origin_host() ) === 0 ) );
+		return ( stripos( self::strip_protocol_from_url( $url ), self::origin_host() ) === 0 );
 	}
 
 	/**
@@ -454,33 +441,6 @@ class Util {
 		return $info;
 	}
 
-	public static function is_local_asset_url( $url ) {
-		if ( ! self::is_local_url( $url ) ) {
-			return false;
-		}
-
-		$allowed_asset_extensions = apply_filters( 'simply_static_allowed_local_asset_extensions', [
-			'webp',
-			'gif',
-			'jpg',
-			'jpeg',
-			'png',
-			'svg',
-			'json',
-			'js',
-			'css',
-			'xml',
-		] );
-
-		$path_info = self::url_path_info( $url );
-
-		if ( empty( $path_info['extension'] ) ) {
-			return false;
-		}
-
-		return in_array( $path_info['extension'], $allowed_asset_extensions, true );
-	}
-
 	/**
 	 * Ensure there is a single trailing directory separator on the path
 	 *
@@ -497,6 +457,15 @@ class Util {
 	 */
 	public static function remove_trailing_directory_separator( $path ) {
 		return rtrim( $path, DIRECTORY_SEPARATOR );
+	}
+
+	/**
+	 * Ensure there is a single leading directory separator on the path
+	 *
+	 * @param string $path File path to add leading directory separator to
+	 */
+	public static function add_leading_directory_separator( $path ) {
+		return DIRECTORY_SEPARATOR . self::remove_leading_directory_separator( $path );
 	}
 
 	/**
@@ -533,13 +502,9 @@ class Util {
 	 * @param string $task_name Name of the task
 	 * @param string $message Message to display about the status of the job
 	 *
-	 * @return array
+	 * @return void
 	 */
 	public static function add_archive_status_message( $messages, $task_name, $message ) {
-		if ( ! is_array( $messages ) ) {
-			$messages = array();
-		}
-
 		// if the state exists, set the datetime and message
 		if ( ! array_key_exists( $task_name, $messages ) ) {
 			$messages[ $task_name ] = array(
